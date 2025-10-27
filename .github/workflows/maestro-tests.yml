@@ -31,7 +31,8 @@ jobs:
           arch: x86_64
           profile: pixel_6
           target: google_apis
-          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-metrics -no-window
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-metrics -no-window -skip-adb-auth
           script: |
             set -euxo pipefail
             APK_PATH="app/app.apk"
