@@ -40,6 +40,58 @@ jobs:
               echo "Expected Android APK at $APK_PATH. Ensure the file is committed or adjust the workflow." >&2
               exit 1
             fi
+
+            ADB_BIN="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}/platform-tools/adb"
+            if [[ -x "$ADB_BIN" ]]; then
+              export PATH="$(dirname "$ADB_BIN"):$PATH"
+            fi
+
+            if ! command -v adb >/dev/null 2>&1; then
+              echo "adb binary not found on PATH; ensure platform-tools are installed." >&2
+              exit 1
+            fi
+
+            adb kill-server || true
+            adb start-server
+
+            echo "Waiting for emulator to appear in adb..."
+            SERIAL=""
+            for attempt in $(seq 1 30); do
+              SERIAL="$(adb devices | awk '/emulator-/{print $1; exit}')"
+              if [[ -n "$SERIAL" ]]; then
+                echo "Detected emulator serial: $SERIAL"
+                adb -s "$SERIAL" wait-for-device
+                break
+              fi
+              sleep 5
+            done
+
+            if [[ -z "$SERIAL" ]]; then
+              echo "Emulator never appeared in adb devices output." >&2
+              adb devices || true
+              exit 1
+            fi
+
+            echo "Waiting for emulator to finish booting..."
+            BOOT=""
+            for attempt in $(seq 1 30); do
+              BOOT="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+              if [[ "$BOOT" == "1" ]]; then
+                echo "Emulator reported boot complete."
+                break
+              fi
+              sleep 5
+            done
+
+            if [[ "$BOOT" != "1" ]]; then
+              echo "Emulator did not finish booting in expected time." >&2
+              adb -s "$SERIAL" shell getprop sys.boot_completed || true
+              adb -s "$SERIAL" shell dumpsys activity activities | head -n 100 || true
+              exit 1
+            fi
+
+            adb -s "$SERIAL" shell input keyevent 82 || true
+
             curl -Ls "https://get.maestro.mobile.dev" | bash
             export PATH="$HOME/.maestro/bin:$PATH"
             maestro --version
