@@ -24,6 +24,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Reset adb daemon
+        run: |
+          set -euxo pipefail
+          ADB_BIN="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}/platform-tools/adb"
+          if [[ -x "$ADB_BIN" ]]; then
+            export PATH="$(dirname "$ADB_BIN"):$PATH"
+          fi
+          if ! command -v adb >/dev/null 2>&1; then
+            echo "adb binary not found on PATH before emulator start; installing platform-tools." >&2
+            yes | "${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"/cmdline-tools/latest/bin/sdkmanager --install "platform-tools"
+            export PATH="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}/platform-tools:$PATH"
+          fi
+          adb kill-server || true
+          adb start-server
+
       - name: Run Maestro suite (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
