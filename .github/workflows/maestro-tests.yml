@@ -40,83 +40,115 @@ jobs:
           adb start-server
 
       - name: Run Maestro suite (Android)
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          arch: x86_64
-          profile: pixel_6
-          target: google_apis
-          emulator-boot-timeout: 900
-          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-metrics -no-window -skip-adb-auth
-          script: |
-            set -euxo pipefail
-            APK_PATH="app/app.apk"
-            if [[ ! -f "$APK_PATH" ]]; then
-              echo "Expected Android APK at $APK_PATH. Ensure the file is committed or adjust the workflow." >&2
-              exit 1
+        env:
+          AVD_NAME: maestro-avd
+          ANDROID_API: "33"
+        run: |
+          set -euxo pipefail
+          APK_PATH="app/app.apk"
+          if [[ ! -f "$APK_PATH" ]]; then
+            echo "Expected Android APK at $APK_PATH. Ensure the file is committed or adjust the workflow." >&2
+            exit 1
+          fi
+
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
+          export PATH="$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"
+
+          CMDLINE_BIN="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
+          yes | "$CMDLINE_BIN/sdkmanager" --licenses >/dev/null
+          "$CMDLINE_BIN/sdkmanager" --install \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-${ANDROID_API};google_apis;x86_64" >/dev/null
+
+          adb kill-server || true
+          adb start-server
+
+          "$CMDLINE_BIN/avdmanager" delete avd -n "$AVD_NAME" || true
+          echo no | "$CMDLINE_BIN/avdmanager" create avd --force \
+            -n "$AVD_NAME" \
+            --abi "google_apis/x86_64" \
+            --package "system-images;android-${ANDROID_API};google_apis;x86_64" \
+            --device "pixel_6"
+
+          EMULATOR_PORT=5554
+          EMULATOR_CMD=(
+            emulator
+            -port "${EMULATOR_PORT}"
+            -avd "$AVD_NAME"
+            -no-snapshot
+            -noaudio
+            -no-boot-anim
+            -gpu swiftshader_indirect
+            -no-metrics
+            -no-window
+            -skip-adb-auth
+          )
+
+          echo "Starting emulator: ${EMULATOR_CMD[*]}"
+          rm -f emulator.log
+          "${EMULATOR_CMD[@]}" > emulator.log 2>&1 &
+          EMULATOR_PID=$!
+          cleanup() {
+            adb -s "emulator-${EMULATOR_PORT}" emu kill >/dev/null 2>&1 || true
+            if ps -p "$EMULATOR_PID" >/dev/null 2>&1; then
+              kill "$EMULATOR_PID" >/dev/null 2>&1 || true
             fi
+          }
+          trap cleanup EXIT
 
-            ADB_BIN="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}/platform-tools/adb"
-            if [[ -x "$ADB_BIN" ]]; then
-              export PATH="$(dirname "$ADB_BIN"):$PATH"
-            fi
-
-            if ! command -v adb >/dev/null 2>&1; then
-              echo "adb binary not found on PATH; ensure platform-tools are installed." >&2
-              exit 1
-            fi
-
-            adb kill-server || true
-            adb start-server
-
-            echo "Waiting for emulator to appear in adb..."
-            SERIAL=""
-            for attempt in $(seq 1 30); do
-              SERIAL="$(adb devices | awk '/emulator-/{print $1; exit}')"
-              if [[ -n "$SERIAL" ]]; then
-                echo "Detected emulator serial: $SERIAL"
-                adb -s "$SERIAL" wait-for-device
+          echo "Waiting for emulator to appear in adb..."
+          SERIAL=""
+          for attempt in $(seq 1 60); do
+            SERIAL="$(adb devices | awk '/emulator-/{print $1; exit}')"
+            if [[ -n "$SERIAL" ]]; then
+              echo "Detected emulator serial: $SERIAL"
+              adb -s "$SERIAL" wait-for-device
+              STATE="$(adb -s "$SERIAL" get-state || true)"
+              if [[ "$STATE" == "device" ]]; then
                 break
               fi
-              sleep 5
-            done
-
-            if [[ -z "$SERIAL" ]]; then
-              echo "Emulator never appeared in adb devices output." >&2
-              adb devices || true
-              exit 1
             fi
+            sleep 5
+          done
 
-            echo "Waiting for emulator to finish booting..."
-            BOOT=""
-            for attempt in $(seq 1 30); do
-              BOOT="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
-              if [[ "$BOOT" == "1" ]]; then
-                echo "Emulator reported boot complete."
-                break
-              fi
-              sleep 5
-            done
+          if [[ -z "$SERIAL" ]]; then
+            echo "Emulator never appeared in adb devices output." >&2
+            cat emulator.log || true
+            exit 1
+          fi
 
-            if [[ "$BOOT" != "1" ]]; then
-              echo "Emulator did not finish booting in expected time." >&2
-              adb -s "$SERIAL" shell getprop sys.boot_completed || true
-              adb -s "$SERIAL" shell dumpsys activity activities | head -n 100 || true
-              exit 1
+          echo "Waiting for emulator to report boot completed..."
+          BOOT=""
+          for attempt in $(seq 1 60); do
+            BOOT="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+            if [[ "$BOOT" == "1" ]]; then
+              echo "Emulator reported boot complete."
+              break
             fi
+            sleep 5
+          done
 
-            adb -s "$SERIAL" shell input keyevent 82 || true
+          if [[ "$BOOT" != "1" ]]; then
+            echo "Emulator did not finish booting in expected time." >&2
+            cat emulator.log || true
+            adb -s "$SERIAL" shell getprop sys.boot_completed || true
+            adb -s "$SERIAL" shell dumpsys activity activities | head -n 100 || true
+            exit 1
+          fi
 
-            curl -Ls "https://get.maestro.mobile.dev" | bash
-            export PATH="$HOME/.maestro/bin:$PATH"
-            maestro --version
-            mkdir -p "$MAESTRO_RESULTS_DIR/android"
-            maestro test \
-              --format junit \
-              --output "$MAESTRO_RESULTS_DIR/android" \
-              --app "$APK_PATH" \
-              @"$MAESTRO_ENV_FILE" \
-              .maestro/
+          adb -s "$SERIAL" shell input keyevent 82 || true
+
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+          mkdir -p "$MAESTRO_RESULTS_DIR/android"
+          maestro test \
+            --format junit \
+            --output "$MAESTRO_RESULTS_DIR/android" \
+            --app "$APK_PATH" \
+            @"$MAESTRO_ENV_FILE" \
+            .maestro/
 
       - name: Upload Android artifacts
         if: always()
