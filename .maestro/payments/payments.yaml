@@ -1,0 +1,41 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - payment page flow"
+tags:
+  - payments
+  - nightly
+onFlowStart:
+  - runFlow:
+      file: ../auth/start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# Should open the payments page before running payments page flow run
+- tapOn:
+    # NEED TESTID=payments_page
+    text: ${output.local.payment.title}
+    label: Tap on the payments menu item
+- runFlow:
+    when:
+      visible:
+        # NEED TESTID=payments_page_title
+        text: ${output.local.payment.myPayments}
+      label: "My payments page is opened"
+    commands:
+      - assertVisible:
+          text: ${output.local.payment.fixed}
+          label: Check fixed payments are shown
+      - assertVisible:
+          text: ${output.local.payment.bonus}
+          label: Check bonus payments are shown
+      - assertVisible:
+          text: ${output.local.payment.tips}
+          label: Check change payments are shown
+      - assertVisible:
+          text: ${output.local.payment.penalty}
+          label: Check penalty payments are shown
+      - assertVisible:
+          text: ${output.local.orders.total}
+          label: Check total payments are shown

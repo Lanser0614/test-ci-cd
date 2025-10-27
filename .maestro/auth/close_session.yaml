@@ -1,0 +1,47 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - close session flow"
+tags:
+  - close_session
+  - nightly
+  - regression
+onFlowStart:
+  - runFlow:
+      file: ./start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# To close the session courier must open the profile page
+- tapOn:
+    # NEED TESTID=page_title
+    text: ${output.local.profile.title}
+    label: "Open the profile page to close the session"
+
+# Scroll until close session button is visible
+- scrollUntilVisible:
+    element:
+      # NEED TESTID=close_session_btn
+      text: ${output.local.profile.endShift}
+    direction: DOWN
+    visibilityPercentage: 100
+    label: "Scrol down until close session button is visible"
+
+# Should check the close the session button is visilble be for the flow run
+- runFlow:
+    when:
+      # Check the close session button is visible
+      visible:
+        text: ${output.local.profile.endShift}
+      label: "The close session button is visible"
+    commands:
+      # Tap on the close sessoin button
+      - tapOn:
+          text: ${output.local.profile.endShift}
+          label: "Tap on close session button"
+      # Check after close the session, the start session button is visible
+      - assertVisible:
+          # NEED TESTID=start_session_btn
+          text: ${output.local.common.login}
+          label: "Assert the session is closed and start session button is visible"

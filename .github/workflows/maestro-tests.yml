@@ -1,0 +1,142 @@
+name: Maestro UI Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  MAESTRO_ENV_FILE: .env.uz
+  MAESTRO_RESULTS_DIR: maestro-results
+
+jobs:
+  android:
+    name: Android UI tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Run Maestro suite (Android)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          profile: pixel_6
+          target: google_apis
+          script: |
+            set -euxo pipefail
+            APK_PATH="app/app.apk"
+            if [[ ! -f "$APK_PATH" ]]; then
+              echo "Expected Android APK at $APK_PATH. Ensure the file is committed or adjust the workflow." >&2
+              exit 1
+            fi
+            curl -Ls "https://get.maestro.mobile.dev" | bash
+            export PATH="$HOME/.maestro/bin:$PATH"
+            maestro --version
+            mkdir -p "$MAESTRO_RESULTS_DIR/android"
+            maestro test \
+              --format junit \
+              --output "$MAESTRO_RESULTS_DIR/android" \
+              --app "$APK_PATH" \
+              @"$MAESTRO_ENV_FILE" \
+              .maestro/
+
+      - name: Upload Android artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android
+          path: maestro-results/android
+          if-no-files-found: ignore
+
+  ios:
+    name: iOS UI tests
+    runs-on: macos-latest
+    env:
+      IOS_APP_SOURCE: ${{ vars.IOS_APP_SOURCE != '' && vars.IOS_APP_SOURCE || 'app/ios.app.zip' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Maestro CLI
+        run: |
+          set -euxo pipefail
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          maestro --version
+
+      - name: Prepare iOS binary
+        run: |
+          set -euxo pipefail
+          INPUT="$IOS_APP_SOURCE"
+          if [[ "$INPUT" == http* ]]; then
+            curl -L "$INPUT" -o ios-app.zip
+            INPUT="ios-app.zip"
+          fi
+
+          if [[ ! -e "$INPUT" ]]; then
+            echo "Expected iOS binary at '$INPUT'. Provide IOS_APP_SOURCE via repository variable or commit the file." >&2
+            exit 1
+          fi
+
+          if [[ "$INPUT" == *.zip || "$INPUT" == *.ipa ]]; then
+            unzip -qo "$INPUT" -d ios-app
+            APP_PATH=$(find ios-app -type d -name "*.app" | head -n 1)
+            if [[ -z "$APP_PATH" ]]; then
+              echo "Unable to locate .app bundle after extracting '$INPUT'." >&2
+              exit 1
+            fi
+            echo "IOS_APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+          else
+            echo "IOS_APP_PATH=$INPUT" >> "$GITHUB_ENV"
+          fi
+
+      - name: Boot iOS simulator
+        env:
+          SIM_DEVICE: ${{ vars.IOS_SIMULATOR_DEVICE != '' && vars.IOS_SIMULATOR_DEVICE || 'iPhone 15' }}
+        run: |
+          set -euxo pipefail
+          RUNTIME=$(xcrun simctl list runtimes | awk -F'[()]' '/iOS/ && /com.apple.CoreSimulator.SimRuntime.iOS/ {print $2; exit}')
+          if [[ -z "$RUNTIME" ]]; then
+            echo "No iOS runtime found on the runner." >&2
+            exit 1
+          fi
+
+          DEVICE_TYPE=$(xcrun simctl list devicetypes | awk -F'[()]' -v name="$SIM_DEVICE" '$1 ~ name {print $2; exit}')
+          if [[ -z "$DEVICE_TYPE" ]]; then
+            DEVICE_TYPE=$(xcrun simctl list devicetypes | awk -F'[()]' '/iPhone/ {print $2; exit}')
+          fi
+
+          SIMULATOR_ID=$(xcrun simctl create MaestroTest "$DEVICE_TYPE" "$RUNTIME")
+          xcrun simctl boot "$SIMULATOR_ID"
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          echo "SIMULATOR_ID=$SIMULATOR_ID" >> "$GITHUB_ENV"
+
+      - name: Run Maestro suite (iOS)
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/.maestro/bin:$PATH"
+          mkdir -p "$MAESTRO_RESULTS_DIR/ios"
+          maestro test \
+            --format junit \
+            --output "$MAESTRO_RESULTS_DIR/ios" \
+            --app "$IOS_APP_PATH" \
+            --device "$SIMULATOR_ID" \
+            @"$MAESTRO_ENV_FILE" \
+            .maestro/
+
+      - name: Upload iOS artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios
+          path: maestro-results/ios
+          if-no-files-found: ignore

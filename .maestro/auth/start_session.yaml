@@ -1,0 +1,70 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - start session flow"
+tags:
+  - session_start
+  - nightly
+  - regression
+onFlowStart:
+  - runFlow:
+      file: ./login.yaml
+      label: Login flow Started
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+      label: Localization script started...
+
+---
+- setLocation:
+    latitude: 41.2979
+    longitude: 69.2495
+    label: "Setting location of branch"
+# Check the start session button is visible before running the flow
+- runFlow:
+    when:
+      visible:
+        # if the Enter button is visible, then the start session is available
+        text: ${output.local.common.login}
+      label: "The start session button is visible"
+    commands:
+      # Assert the welcome greeting message is shown
+      - assertVisible:
+          text: ${output.local.welcome.title}
+          label: "Assert the welcome greeting message is shown"
+      # tap on the "Enter" button to start the session
+      - tapOn:
+          # NEED TESTID
+          text: ${output.local.common.login}
+          label: "Tap on the Enter button to start the session"
+      # Assert active orders page is open after the session is started
+      - assertVisible:
+          text: ${output.local.orders.active}
+          label: Assert the active order page is opened after the session is started
+- runFlow:
+    when:
+      visible:
+        # NEED TESTID=atBranchBtn
+        text: ${output.local.orders.atBranch}
+      label: At branch button is visible
+    commands:
+      - assertVisible:
+          text: ${output.local.profile.branch}.*
+          label: Check the branch name is visible
+      - assertVisible:
+          text: ${output.local.orders.atBranch}.*
+          label: Check the at branch button is visible
+      - tapOn:
+          text: ${output.local.orders.atBranch}.*
+          label: Tap on the at branch button
+- runFlow:
+    when:
+      visible:
+        text: ${output.local.orders.courierReady}
+    label: Courier ready button is visible
+    commands:
+      - assertVisible:
+          text: ${output.local.orders.courierReady}.*
+          label: Check the courier ready button is visible
+      - tapOn:
+          text: OK
+          label: Tap on the courier ready button

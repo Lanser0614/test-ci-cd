@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - orders page flow"
+tags:
+  - orders
+  - nightly
+onFlowStart:
+  - runFlow:
+      file: ../auth/start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# Before the orders page checking, the page must be opened
+- tapOn:
+    text: ${output.local.orders.title}
+    label: Open order page
+# Should check the orders page is opened
+- runFlow:
+    when:
+      visible:
+        # NEED TESTID=orders_page
+        text: ${output.local.orders.other}
+        label: the all oders title must be visible
+    commands:
+      # Check the delivered orders tab is opened
+      # NEED TESTID=delivered_orders_tab
+      - assertVisible:
+          text: ${output.local.orders.delivered}
+          label: Delivered orders tab title is visible
+
+      # Check the closed orders tab is available
+      # NEED TESTID=closed_orders_tab
+      - tapOn:
+          text: ${output.local.orders.closed}
+          label: Open the closed orders tab

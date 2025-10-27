@@ -1,0 +1,131 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - active order flow"
+tags:
+  - active
+  - nightly
+  - smoke
+onFlowStart:
+  - runFlow:
+      file: ../auth/start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../scripts/_data.js
+      env:
+        local: ${local}
+      label: "Loading required data..."
+  - runScript:
+      file: ../../scripts/_credentials.js
+      env:
+        local: ${local}
+      label: "Loading required credentials..."
+  - runScript:
+      file: ../../scripts/_genHeader.js
+      env:
+        local: ${local}
+      label: "Prepare requests dependencies..."
+  - runScript:
+      file: ../../scripts/createOrder.mjs
+      env:
+        local: ${local}
+      label: "Create a new order..."
+  - runScript:
+      file: ../../scripts/updateOrderStatus.mjs
+      env:
+        local: ${local}
+      label: "Update order status..."
+  - runScript:
+      file: ../../scripts/clientActiveOrder.mjs
+      env:
+        local: ${local}
+      label: "Get active order..."
+  - runScript:
+      file: ../../scripts/assignOrderToCourier.mjs
+      env:
+        local: ${local}
+      label: "Assign order to courier..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+      label: "Initialize localization..."
+---
+- setLocation:
+    latitude: 41.2979
+    longitude: 69.2495
+    label: "Setting location of branch"
+
+- runFlow:
+    when:
+      visible:
+        # NEED TEST ID = page_title
+        text: ${output.local.orders.activeTitle}
+      label: "Active order title is visible"
+    commands:
+      - assertVisible:
+          text: ${output.local.orders.activeTitle}
+          label: "Checking"
+- runFlow:
+    when:
+      visible:
+        # NEED TEST ID = order_number
+        text: ${output.local.orders.activeTitle}
+      label: "Active order is visible"
+    commands:
+      - swipe:
+          direction: DOWN
+          label: "Swipe down to refresh"
+      - extendedWaitUntil:
+          visible:
+            id: unchecked
+          timeout: 40000
+          label: "Wait until items ready for check"
+      # Check all items of the active order
+      - repeat:
+          while:
+            visible:
+              id: unchecked
+            label: "Check all check boxes until all items are checked"
+          commands:
+            - tapOn:
+                id: unchecked
+                label: "Check all items"
+      # NEED TESTID=continue_btn
+      - assertVisible:
+          text: ${output.local.common.next}
+          enabled: true
+          label: "Assert next button is visible"
+      - tapOn:
+          text: ${output.local.common.next}
+          label: "Tap on next button"
+- runFlow:
+    when:
+      visible:
+        # NEED TEST ID=car
+        text: "Car"
+        label: Car is visible
+    commands:
+      - swipe:
+          direction: RIGHT
+          element: "Car" # Replace with your actual car icon element ID
+          duration: 2000 # Swipe duration in milliseconds
+          percent: 75 # How far to swipe (75% of the width)
+          label: Start to deliver order
+
+## INFO: AFTER TESTID ADDED WILL UNCOMMENT
+
+# - repeat:
+#     while:
+#       visible:
+#         # NEED TEST_ID=clock_wait
+#         # id: clock_wait
+#         leftOf:
+#           id: "order-status"
+#       label: "Don't wait the event come try to refresh ;)"
+#     commands:
+#       - swipe:
+#           direction: DOWN
+#           label: "Swipe down to refresh"
+
+- swipe:
+    direction: DOWN
+    label: "Swipe down to refresh"

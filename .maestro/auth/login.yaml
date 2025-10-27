@@ -1,0 +1,84 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - login flow"
+tags:
+  - login
+  - nightly
+  - smoke
+onFlowStart:
+  - runFlow:
+      file: ./select_country.yaml
+      label: "Select country flow started.."
+  - runFlow:
+      file: ./select_language.yaml
+      label: "Select language flow started.."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# Check the flow is available before running it
+- runFlow:
+    # Should check the phone number input field is visible
+    when:
+      visible:
+        # NEED TESTID=phone_number_input
+        text: ${COUNTRY_CODE}
+      label: "The phone number input field is visible"
+    commands:
+      # Should focus on the phone number input field
+      - tapOn:
+          text: ${COUNTRY_CODE}
+          label: "Focus on the phone number input field"
+      # Insert the courier's phone number
+      - inputText:
+          text: ${PHONE_NUMBER}
+          label: "Insert the courier's phone number"
+      # Assert the privacy & policy confirming check box exist
+      - assertVisible:
+          id: "unchecked"
+          label: "Assert Privacy & policy confirming check box exist"
+      # Confirm the privacy & policy
+      - tapOn:
+          id: unchecked
+          label: "Confirm the privacy & policy"
+      - repeat:
+          while:
+            visible:
+              id: unchecked
+            label: "Confirm the privacy & policy unchecked"
+          commands:
+            - tapOn:
+                id: unchecked
+                label: "Confirm the privacy & policy"
+      # Assert the login button is visible
+      - assertVisible:
+          # NEED TESTID=login_button
+          text: ${output.local.common.login}
+          label: "Assert login button is visible"
+      # Tap on the login button
+      - tapOn:
+          # NEED TEST ID
+          text: ${output.local.common.login}
+          label: "Tap on login button"
+      # Wait for the OTP insert page to be visible
+      - extendedWaitUntil:
+          visible:
+            text: ${output.local.profile.enterSmsCode}
+          label: "Wait for OTP insert page to be visible"
+          timeout: 10000
+# After correct phone number inserted, the flow should continue to insert OTP
+- runFlow:
+    when:
+      # Should check the OTP insert page is visible
+      visible:
+        text: ${output.local.profile.enterSmsCode}
+      label: "OTP insert page is visible"
+    commands:
+      # Assert the OTP input fields are visible
+      - tapOn:
+          id: "otp_input.*"
+          label: "Tap on OTP input to focus on OTP input"
+      # Insert the first digit of the OTP code
+      - inputText:
+          text: ${OTP_CODE}
+          label: "Enter OTP code"

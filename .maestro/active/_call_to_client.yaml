@@ -1,0 +1,30 @@
+appId: ${APP_ID}
+name: Call to client on delivered orders
+tags:
+  - call_to_client
+  - regression
+onFlowStart:
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+- runFlow:
+    when:
+      visible:
+        # NEED TESTID=order_status
+        text: ${output.local.orders.status.onWay}
+      label: Order is on the way
+    commands:
+      - tapOn:
+          text: ${output.local.orders.status.onWay}
+          label: Open order details
+      - assertVisible:
+          # NEED TESTID=call_btn
+          text: ${output.local.common.call}
+          label: Call button is visible
+      - tapOn:
+          text: ${output.local.common.call}
+          label: Call button is tapped
+      - launchApp:
+          label: Open app again...

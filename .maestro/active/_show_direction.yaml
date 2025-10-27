@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+name: Show direction
+tags:
+  - show_direction
+  - regression
+onFlowStart:
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+      label: Initialize localization...
+---
+- runFlow:
+    when:
+      visible:
+        text: ${output.local.orders.status.onWay}
+        label: Order is on the way
+    commands:
+      - tapOn:
+          text: ${output.local.orders.status.onWay}
+          label: Open order details page
+      - assertVisible:
+          # NEED TESTID=show_route_btn
+          text: ${output.local.orders.showRoute}
+          label: check show direction is visible
+      - tapOn: ${output.local.orders.showRoute}
+- runFlow:
+    when:
+      visible:
+        text: Open in Maps
+      label: Check available maps
+    commands:
+      - tapOn:
+          text: Google.*
+          label: Select Google maps
+      - launchApp:
+          label: Open app again...

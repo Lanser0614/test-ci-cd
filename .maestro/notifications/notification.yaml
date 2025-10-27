@@ -1,0 +1,41 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - notification page flow"
+tags:
+  - notification
+  - nightly
+onFlowStart:
+  - runFlow:
+      file: ../auth/start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# Check the notification icon is visible before the notification flow start
+- runFlow:
+    when:
+      visible:
+        id: notification-icon-bell
+      label: "the notification icon is visible and aviable"
+    commands:
+      # Tap on the notification icon to open the notifications page
+      - tapOn:
+          id: notification-icon-bell
+          label: "Tap on the notification icon"
+
+      # Check the notification page is opened
+      - assertVisible:
+          # NEED TESTID
+          text: ${output.local.common.notification}
+          label: Check the notification page is opened
+
+      # Open unread notifications tab
+      - tapOn:
+          # NEED TESTID=unread_notifications_tab
+          text: ${output.local.common.unread}
+          label: "Open unread notifications tab"
+      - tapOn:
+          # NEED TESTID=back
+          text: ".*back"
+          label: "Go back to the active orders page"

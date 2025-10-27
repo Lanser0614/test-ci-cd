@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - select country flow"
+tags:
+  - country-selection
+  - nightly
+  - smoke
+
+onFlowStart:
+  - runScript:
+      file: ../../localization/ru.js
+      label: Localization script started...
+---
+- launchApp:
+    clearState: true
+    label: Launching the app with clear state
+# Check the flow is available before running it
+- runFlow:
+    when:
+      # Should check the country selection bottom sheet is visible
+      visible:
+        # NEED TESTID=select_country_bottom_sheet_title
+        text: ${output.local.common.selectCountry}
+      label: "The country selection modal is opened"
+    commands:
+      # Check the countries selection option is visible
+      - assertVisible:
+          text: KAZAKHSTAN
+          label: "Assert KAZAKHSTAN option is visible"
+      # Check the Uzbekistan option is visible
+      - assertVisible:
+          text: UZBEKISTAN
+          label: "Assert UZBEKISTAN option is visible"
+      # Select the country through the CLI inserted value
+      - tapOn:
+          text: ${COUNTRY}
+          label: "Select the ${COUNTRY} option"
+      # Assert the selected country's phone code is visible
+      - assertVisible:
+          text: ${COUNTRY_CODE}
+          label: "Assert the selected country's phone code is visible"

@@ -1,0 +1,85 @@
+appId: ${APP_ID}
+name: Deliver order flow
+tags:
+  - delivery_order
+  - regression
+onFlowStart:
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+      label: "Initialize localization..."
+  - runFlow:
+      file: _active.yaml
+      label: "Start delivering order"
+---
+# active page actions
+- setLocation:
+    latitude: ${Latitude}
+    longitude: ${Longitude}
+    label: "Set client location"
+- swipe:
+    direction: DOWN
+    label: "Swipe down to refresh"
+# CALL TO CLIENT FLOW:
+- runFlow:
+    file: _call_to_client.yaml
+    label: "Call to client flow..."
+- runFlow:
+    file: _show_direction.yaml
+    label: "Show direction flow..."
+
+# delivery order flow
+- runFlow:
+    when:
+      visible:
+        text: ${output.local.orders.status.onWay}
+      label: "Courier is on way"
+    commands:
+      - tapOn:
+          text: ${output.local.orders.status.onWay}
+          label: "Open order details page"
+
+#order details page actions
+- runFlow:
+    when:
+      # NEED TEST_ID=order_number
+      visible: "(.*#.*)"
+      label: "Order is exist right now"
+    commands:
+      - tapOn:
+          text: "(.*#.*)"
+          label: "Check order details"
+- runFlow:
+    when:
+      visible:
+        # NEED TEST_ID=arrive_btn
+        text: ${output.local.orders.arrive}
+      label: "Courier is arrived"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ${output.local.orders.arrive}
+          timeout: 10000 # Timeout in milliseconds
+          label: "Wait for courier to arrive"
+      - tapOn:
+          text: ${output.local.orders.arrive}
+          enabled: true
+          label: "Click the arrived button"
+- runFlow:
+    when:
+      visible:
+        id: unchecked
+      label: "Order is being checked"
+    commands:
+      - tapOn:
+          id: unchecked
+          label: "Confirm the order is checked fully"
+      - assertVisible:
+          # NEED TEST_ID=complete_btn
+          text: ${output.local.orders.complete}
+          label: "Assert order is complete button is visible"
+      - tapOn:
+          text: ${output.local.orders.complete}
+          enabled: true
+          label: "Click the finish button"

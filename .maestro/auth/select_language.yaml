@@ -1,0 +1,41 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - select language flow"
+tags:
+  - language
+  - nightly
+  - smoke
+onFlowStart:
+  - runScript:
+      file: ../../localization/ru.js
+      label: Localization script started...
+---
+- extendedWaitUntil:
+    visible:
+      id: "login-language"
+    timeout: 10000
+    label: "Wait for language selection section to be visible"
+# Check the flow is available before running it
+- runFlow:
+    when:
+      # Should check the language selection page is visible
+      visible:
+        id: "login-language"
+      label: "Language selection section is visible"
+    commands:
+      # open the language selection options
+      - tapOn:
+          id: "login-language"
+          label: "Tap on language selection section"
+      # Assert the language options are visible
+      - assertVisible:
+          # NEED TESTID
+          text: ${output.local.common.selectedLanguage}
+          label: "Assert language options are visible"
+      # Select the language
+      - tapOn:
+          text: ${LANGUAGE}
+          label: "Select the language"
+      # Assert the select language is correct
+      - assertVisible:
+          text: ${BUTTON}
+          label: "Assert the selected language is correct"

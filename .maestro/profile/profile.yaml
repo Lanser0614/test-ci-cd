@@ -1,0 +1,66 @@
+appId: ${APP_ID}
+name: "Bellissimo courier app - profile page flow"
+tags:
+  - profile
+  - nightly
+onFlowStart:
+  - runFlow:
+      file: ../auth/start_session.yaml
+      label: "Start session..."
+  - runScript:
+      file: ../../localization/local.js
+      env:
+        local: ${local}
+---
+# Before running the flow should open the profile page
+- tapOn:
+    text: ${output.local.profile.title}
+    label: "Open the profile page to close the session"
+
+# Should Check all properties of the profile page
+- runFlow:
+    when:
+      # Check visibility of the setting session title
+      visible:
+        text: ${output.local.common.settings}
+      label: "The setting session title is visible"
+    commands:
+      # Check navigator section title is visible
+      - assertVisible:
+          text: ${output.local.common.navigator}
+          label: "Check the navigator options section is visible"
+
+      # Check language section title is visible
+      - assertVisible:
+          text: ${output.local.profile.language}.*
+          label: "Check the language section is visible"
+
+      # Check change branch section title is visible
+      - assertVisible:
+          text: ${output.local.profile.changeBranch}
+          label: "Check the change branch section is visible"
+
+      # Check tutorial section title is visible
+      - assertVisible:
+          text: ${output.local.profile.training}
+          label: "Check the tutorial section is visible"
+
+      # Check all tutorials section title is visible
+      - assertVisible:
+          text: ${output.local.profile.allCourses}
+          label: "Check the all tutorials section is visible"
+
+      # Check communication section title is visible
+      - assertVisible:
+          text: ${output.local.common.feedback}
+          label: "Check the communication section is visible"
+
+      # Check feedback section title is visible
+      - assertVisible:
+          text: ${output.local.common.feedbacks}
+          label: "Check the feedback section is visible"
+
+      # Check connect with operator section title is visible
+      - assertVisible:
+          text: ${output.local.profile.contactOperator}
+          label: "Check the connect with operator section is visible"

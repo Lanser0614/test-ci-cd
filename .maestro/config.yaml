@@ -1,0 +1,26 @@
+flows:
+  - "active/*"
+  - "notifications/*"
+  - "orders/*"
+  - "payments/*"
+  - "profile/*"
+
+includeTags:
+  - nightly
+
+excludeTags:
+  - smoke
+  - utils
+
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - start_session
+    - delivery_order
+    - show_direction
+    - notification
+    - orders
+    - payments
+    - profile
+
+testOutputDir: results
