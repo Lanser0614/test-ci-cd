@@ -55,7 +55,13 @@ jobs:
           export PATH="$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"
 
           CMDLINE_BIN="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
-          yes | "$CMDLINE_BIN/sdkmanager" --licenses >/dev/null
+          # yes exits 141 (SIGPIPE) once sdkmanager closes stdin; ignore that specific case.
+          if ! yes | "$CMDLINE_BIN/sdkmanager" --licenses >/dev/null; then
+            status=$?
+            if [[ "$status" -ne 141 ]]; then
+              exit "$status"
+            fi
+          fi
           "$CMDLINE_BIN/sdkmanager" --install \
             "platform-tools" \
             "emulator" \
