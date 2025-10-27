@@ -27,10 +27,11 @@ jobs:
       - name: Run Maestro suite (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
-          arch: x86_64
+          api-level: 34
+          arch: arm64-v8a
           profile: pixel_6
           target: google_apis
+          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-window
           script: |
             set -euxo pipefail
             APK_PATH="app/app.apk"
