@@ -13,7 +13,7 @@ env:
 jobs:
   android:
     name: Android UI tests
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,11 +27,11 @@ jobs:
       - name: Run Maestro suite (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          arch: arm64-v8a
+          api-level: 33
+          arch: x86_64
           profile: pixel_6
           target: google_apis
-          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-window
+          emulator-options: -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -no-metrics -no-window
           script: |
             set -euxo pipefail
             APK_PATH="app/app.apk"
